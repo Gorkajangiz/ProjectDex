@@ -29,25 +29,25 @@ Una aplicación que recoge datos de la PokeAPI para permitir ver información de
 <h2>🖥️ Capturas de la aplicación</h2>
 
 <h3>Landing page</h3>
-<img src="resReadme/dex.jpg" width="100"/>
+<img src="resReadme/dex.jpg" width="250"/>
 
 <h3>Menú de información</h3>
-<img src="resReadme/dex1.jpg" width="700"/>
+<img src="resReadme/dex1.jpg" width="250"/>
 
 <h3>Favoritos</h3>
-<img src="resReadme/dex2.jpg" width="700"/>
+<img src="resReadme/dex2.jpg" width="250"/>
 
 <h3>Buscador</h3>
-<img src="resReadme/dex3.jpg" width="700"/>
+<img src="resReadme/dex3.jpg" width="250"/>
 
 <h3>Busqueda</h3>
-<img src="resReadme/dex4.jpg" width="700"/>
+<img src="resReadme/dex4.jpg" width="250"/>
 
 <h3>Equipos</h3>
-<img src="resReadme/dex5.jpg" width="700"/>
+<img src="resReadme/dex5.jpg" width="250"/>
 
 <h3>Favoritos actualizado</h3>
-<img src="resReadme/dex6.jpg" width="700"/>
+<img src="resReadme/dex6.jpg" width="250"/>
 
 ---
 
