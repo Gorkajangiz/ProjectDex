@@ -29,7 +29,7 @@ Una aplicación que recoge datos de la PokeAPI para permitir ver información de
 <h2>🖥️ Capturas de la aplicación</h2>
 
 <h3>Landing page</h3>
-<img src="resReadme/dex.jpg" width="700"/>
+<img src="resReadme/dex.jpg" width="100"/>
 
 <h3>Menú de información</h3>
 <img src="resReadme/dex1.jpg" width="700"/>
