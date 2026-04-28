@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="hp_color">#FF5959</color>
+    <color name="ataque_color">#F08030</color>
+    <color name="defensa_color">#F8D030</color>
+    <color name="ataque_especial_color">#6890F0</color>
+    <color name="defensa_especial_color">#78C850</color>
+    <color name="velocidad_color">#F85888</color>
+    <color name="tipo_normal">#A8A878</color>
+    <color name="tipo_fuego">#F08030</color>
+    <color name="tipo_agua">#6890F0</color>
+    <color name="tipo_electrico">#F8D030</color>
+    <color name="tipo_planta">#78C850</color>
+    <color name="tipo_hielo">#98D8D8</color>
+    <color name="tipo_lucha">#C03028</color>
+    <color name="tipo_veneno">#A040A0</color>
+    <color name="tipo_tierra">#E0C068</color>
+    <color name="tipo_volador">#A890F0</color>
+    <color name="tipo_psiquico">#F85888</color>
+    <color name="tipo_bicho">#A8B820</color>
+    <color name="tipo_roca">#B8A038</color>
+    <color name="tipo_fantasma">#705898</color>
+    <color name="tipo_dragon">#7038F8</color>
+    <color name="tipo_siniestro">#705848</color>
+    <color name="tipo_acero">#B8B8D0</color>
+    <color name="tipo_hada">#EE99AC</color>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+</resources>

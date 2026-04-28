@@ -1,0 +1,357 @@
+package com.example.projectdexv2;
+
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+import android.graphics.drawable.GradientDrawable;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class fragmentEquipos extends Fragment {
+    //Declaro variables
+    private RecyclerView recycler1;
+    private EquipoCardAdapter adaptador1;
+    private PokemonDataSource ds1;
+    private Handler manejador;
+    private List<Equipo> listaEquipos = new ArrayList<>();
+    private ExecutorService ejecutor;
+    private int currentPokemonId = 0;
+    private List<Equipo> equiposDisponibles = new ArrayList<>();
+
+    //Creo un handler y un Executor
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        manejador = new Handler(Looper.getMainLooper());
+        ejecutor = Executors.newFixedThreadPool(3);
+    }
+
+    //https://stackoverflow.com/questions/25119090/difference-between-oncreateview-and-onviewcreated-in-fragment
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragmentoequipos, container, false);
+        recycler1 = view.findViewById(R.id.recyclerViewEquipos);
+        adaptador1 = new EquipoCardAdapter(listaEquipos, getContext());
+        recycler1.setLayoutManager(new LinearLayoutManager(getContext()));
+        recycler1.setAdapter(adaptador1);
+        ds1 = new PokemonDataSource();
+        cargarEquipos();
+        adaptador1.setOnPokemonClickListener(new EquipoCardAdapter.OnPokemonClickListener() {
+            //Esto es lo que overridea que al hacer click en el pokemon abra el dialogo nuevo
+            @Override
+            public void onPokemonClick(int pokemonId) {
+                mostrarDetallePokemon(pokemonId);
+            }
+        });
+        return view;
+    }
+
+    private void cargarEquipos() {
+        ejecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                ArrayList<Equipo> equiposNuevos = ds1.obtenerEquiposConPokemon();
+                manejador.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        listaEquipos.clear();
+                        if (equiposNuevos != null) {
+                            listaEquipos.addAll(equiposNuevos);
+                        }
+                        adaptador1.notifyDataSetChanged();
+                    }
+                });
+            }
+        });
+    }
+
+    //Este es el método que se encarga de mostrar los datos de los pokemon
+    private void mostrarDetallePokemon(int pokemonId) {
+        View popupView = LayoutInflater.from(requireContext()).inflate(R.layout.pokemon_detalle_popup, null);
+        setupPopupView(popupView, pokemonId);
+        ViewGroup rootView = (ViewGroup) requireActivity().getWindow().getDecorView();
+        rootView.addView(popupView);
+    }
+
+    private void setupPopupView(View popupView, int pokemonId) {
+        currentPokemonId = pokemonId;
+        ImageView btnCerrar = popupView.findViewById(R.id.btnCerrar);
+        //Este setup es para asignar a cada botón su funcion
+        btnCerrar.setOnClickListener(v -> {
+            ViewGroup rootView = (ViewGroup) requireActivity().getWindow().getDecorView();
+            rootView.removeView(popupView);
+        });
+        popupView.findViewById(R.id.detallePopup).setOnClickListener(v -> {
+            ViewGroup rootView = (ViewGroup) requireActivity().getWindow().getDecorView();
+            rootView.removeView(popupView);
+        });
+        LinearLayout btnFavorito = popupView.findViewById(R.id.btnFavorito);
+        btnFavorito.setOnClickListener(v -> {
+            agregarAFavoritos(currentPokemonId, popupView);
+        });
+        LinearLayout btnReservado = popupView.findViewById(R.id.btnReservado);
+        btnReservado.setOnClickListener(v -> {
+            cargarEquiposParaSeleccion(currentPokemonId, popupView);
+        });
+        //Esto es para sacar las imagenes
+        ImageView ivPokemon = popupView.findViewById(R.id.ivPokemonDetalle);
+        String imageUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/" + pokemonId + ".png";
+        Glide.with(requireContext()).load(imageUrl).placeholder(R.drawable.pokeballllena).into(ivPokemon);
+        TextView tvNumero = popupView.findViewById(R.id.tvNumeroDetalle);
+        tvNumero.setText(String.format("#%03d", pokemonId));
+        //Esto lo mismo que en el otro, un hilo para llamar a la API y sacar el pokemon al cargarlo
+        new Thread(() -> {
+            try {
+                URL url = new URL("https://pokeapi.co/api/v2/pokemon/" + pokemonId + "/");
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+                JSONObject json = new JSONObject(response.toString());
+                Pokemon pokemon = ParseadorApis.parsear(json);
+                manejador.post(() -> {
+                    actualizarPopupConDatos(popupView, pokemon);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                manejador.post(() -> {
+                    TextView tvNombre = popupView.findViewById(R.id.tvNombreDetalle);
+                    tvNombre.setText("Pokémon #" + pokemonId);
+                    Toast.makeText(requireContext(), "Error al cargar datos", Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    //Este es un método para actualizar una vez se carguen los datos, si no se cargan puede crashear
+    private void actualizarPopupConDatos(View popupView, Pokemon pokemon) {
+        TextView tvNombre = popupView.findViewById(R.id.tvNombreDetalle);
+        tvNombre.setText(pokemon.getNombre());
+        TextView tvNumero = popupView.findViewById(R.id.tvNumeroDetalle);
+        tvNumero.setText(String.format("#%03d", pokemon.getNumeroPokedex()));
+        LinearLayout lytTipos = popupView.findViewById(R.id.lytTipos);
+        lytTipos.removeAllViews();
+        if (pokemon.getTipoUno() != null) {
+            lytTipos.addView(crearTipoView(pokemon.getTipoUno()));
+        }
+        if (pokemon.getTipoDos() != null && !pokemon.getTipoDos().isEmpty()) {
+            lytTipos.addView(crearTipoView(pokemon.getTipoDos()));
+        }
+        TextView tvDescripcion = popupView.findViewById(R.id.tvDescripcion);
+        tvDescripcion.setText(pokemon.getDescripcion());
+        TextView tvGrupoHuevo = popupView.findViewById(R.id.tvGrupoHuevo);
+        tvGrupoHuevo.setText(pokemon.getGrupoHuevo());
+        TextView tvGeneracion = popupView.findViewById(R.id.tvGeneracion);
+        tvGeneracion.setText("Gen " + pokemon.getGeneracion());
+        TextView tvAltura = popupView.findViewById(R.id.tvAltura);
+        TextView tvPeso = popupView.findViewById(R.id.tvPeso);
+        tvAltura.setText(String.format("%.1f m", pokemon.getAltura() / 10.0));
+        tvPeso.setText(String.format("%.1f kg", pokemon.getPeso() / 10.0));
+        TextView tvHabilidades = popupView.findViewById(R.id.tvHabilidades);
+        StringBuilder habilidades = new StringBuilder();
+        if (pokemon.getHabilidad() != null) {
+            habilidades.append(capitalizar(pokemon.getHabilidad().replace("-", " ")));
+        }
+        if (pokemon.getHabilidadOculta() != null) {
+            if (habilidades.length() > 0) habilidades.append(", ");
+            habilidades.append(capitalizar(pokemon.getHabilidadOculta().replace("-", " ")));
+        }
+        tvHabilidades.setText(habilidades.toString());
+        setupEstadisticasPopup(popupView, pokemon);
+    }
+
+    //Este metodo no lo hice yo, lo saqué de chatgpt porque, los colores y las formas se me dan mal
+    private TextView crearTipoView(String tipo) {
+        TextView tipoView = new TextView(requireContext());
+        tipoView.setText(tipo);
+        tipoView.setPadding(16, 8, 16, 8);
+        tipoView.setTextSize(14);
+        tipoView.setTextColor(0xFFFFFFFF);
+        tipoView.setTypeface(null, android.graphics.Typeface.BOLD);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setShape(GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(20);
+        shape.setColor(getColorForTipo(tipo));
+        tipoView.setBackground(shape);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 8, 0);
+        tipoView.setLayoutParams(params);
+        return tipoView;
+    }
+
+    //Este método lo hice yo pero los colores de cada tipo me los dio chatgpt, estan en colors.xml
+    private int getColorForTipo(String tipo) {
+        if (tipo.equals("Normal")) return getResources().getColor(R.color.tipo_normal);
+        else if (tipo.equals("Fuego")) return getResources().getColor(R.color.tipo_fuego);
+        else if (tipo.equals("Agua")) return getResources().getColor(R.color.tipo_agua);
+        else if (tipo.equals("Eléctrico")) return getResources().getColor(R.color.tipo_electrico);
+        else if (tipo.equals("Planta")) return getResources().getColor(R.color.tipo_planta);
+        else if (tipo.equals("Hielo")) return getResources().getColor(R.color.tipo_hielo);
+        else if (tipo.equals("Lucha")) return getResources().getColor(R.color.tipo_lucha);
+        else if (tipo.equals("Veneno")) return getResources().getColor(R.color.tipo_veneno);
+        else if (tipo.equals("Tierra")) return getResources().getColor(R.color.tipo_tierra);
+        else if (tipo.equals("Volador")) return getResources().getColor(R.color.tipo_volador);
+        else if (tipo.equals("Psíquico")) return getResources().getColor(R.color.tipo_psiquico);
+        else if (tipo.equals("Bicho")) return getResources().getColor(R.color.tipo_bicho);
+        else if (tipo.equals("Roca")) return getResources().getColor(R.color.tipo_roca);
+        else if (tipo.equals("Fantasma")) return getResources().getColor(R.color.tipo_fantasma);
+        else if (tipo.equals("Dragón")) return getResources().getColor(R.color.tipo_dragon);
+        else if (tipo.equals("Siniestro")) return getResources().getColor(R.color.tipo_siniestro);
+        else if (tipo.equals("Acero")) return getResources().getColor(R.color.tipo_acero);
+        else if (tipo.equals("Hada")) return getResources().getColor(R.color.tipo_hada);
+        else return getResources().getColor(R.color.tipo_normal);
+    }
+
+    //Esto es para poner los datos en el textview de cada estadística
+    private void setupEstadisticasPopup(View popupView, Pokemon pokemon) {
+        TextView tvHP = popupView.findViewById(R.id.tvHP);
+        ProgressBar pbHP = popupView.findViewById(R.id.pbHP);
+        tvHP.setText(String.valueOf(pokemon.getHp()));
+        pbHP.setProgress(pokemon.getHp());
+        TextView tvAtaque = popupView.findViewById(R.id.tvAtaque);
+        ProgressBar pbAtaque = popupView.findViewById(R.id.pbAtaque);
+        tvAtaque.setText(String.valueOf(pokemon.getAtaque()));
+        pbAtaque.setProgress(pokemon.getAtaque());
+        TextView tvDefensa = popupView.findViewById(R.id.tvDefensa);
+        ProgressBar pbDefensa = popupView.findViewById(R.id.pbDefensa);
+        tvDefensa.setText(String.valueOf(pokemon.getDefensa()));
+        pbDefensa.setProgress(pokemon.getDefensa());
+        TextView tvAtaqueEspecial = popupView.findViewById(R.id.tvAtaqueEspecial);
+        ProgressBar pbAtaqueEspecial = popupView.findViewById(R.id.pbAtaqueEspecial);
+        tvAtaqueEspecial.setText(String.valueOf(pokemon.getAtaqueEspecial()));
+        pbAtaqueEspecial.setProgress(pokemon.getAtaqueEspecial());
+        TextView tvDefensaEspecial = popupView.findViewById(R.id.tvDefensaEspecial);
+        ProgressBar pbDefensaEspecial = popupView.findViewById(R.id.pbDefensaEspecial);
+        tvDefensaEspecial.setText(String.valueOf(pokemon.getDefensaEspecial()));
+        pbDefensaEspecial.setProgress(pokemon.getDefensaEspecial());
+        TextView tvVelocidad = popupView.findViewById(R.id.tvVelocidad);
+        ProgressBar pbVelocidad = popupView.findViewById(R.id.pbVelocidad);
+        tvVelocidad.setText(String.valueOf(pokemon.getVelocidad()));
+        pbVelocidad.setProgress(pokemon.getVelocidad());
+    }
+
+    //Función estupida para poner mayuscula, sin más
+    private String capitalizar(String texto) {
+        if (texto == null || texto.isEmpty()) return texto;
+        return texto.substring(0, 1).toUpperCase() + texto.substring(1);
+    }
+
+    //Método para añadir a favoritos, abre un hilo y llama a la base de datos
+    private void agregarAFavoritos(int pokemonId, View popupView) {
+        new Thread(() -> {
+            try {
+                if (ds1 == null) {
+                    ds1 = new PokemonDataSource();
+                }
+                Thread.sleep(300);
+                boolean exito = ds1.agregarFavorito(pokemonId);
+                manejador.post(() -> {
+                    if (exito) {
+                        Toast.makeText(requireContext(), "Pokémon añadido a favoritos", Toast.LENGTH_SHORT).show();
+                        TextView btnText = popupView.findViewById(R.id.tvTextoFavorito);
+                        if (btnText != null) {
+                            String textoOriginal = btnText.getText().toString();
+                            btnText.setText("¡AÑADIDO!");
+                            new Handler().postDelayed(() -> {
+                                btnText.setText(textoOriginal);
+                            }, 2000);
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), "Error al añadir a favoritos", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                manejador.post(() -> {
+                    Toast.makeText(requireContext(), "Error de conexión: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    //Abre un hilo para cargar los equipos en el carrusel del inicio
+    private void cargarEquiposParaSeleccion(final int pokemonId, View popupView) {
+        new Thread(() -> {
+            try {
+                if (ds1 == null) {
+                    ds1 = new PokemonDataSource();
+                }
+                Thread.sleep(300);
+                ArrayList<Long> teamIds = ds1.obtenerEquipos();
+                List<Equipo> equipos = new ArrayList<>();
+                for (Long teamId : teamIds) {
+                    String nombre = ds1.obtenerNombreEquipo(teamId);
+                    ArrayList<Integer> pokemonIds = ds1.obtenerPokemonDeEquipo(teamId);
+                    equipos.add(new Equipo(teamId.intValue(), nombre, pokemonIds));
+                }
+                equiposDisponibles.clear();
+                equiposDisponibles.addAll(equipos);
+                manejador.post(() -> {
+                    mostrarPopupSeleccionEquipo(pokemonId, popupView);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                manejador.post(() -> {
+                    Toast.makeText(requireContext(), "Error al cargar equipos", Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    private void mostrarPopupSeleccionEquipo(int pokemonId, View popupViewDetalle) {
+        View seleccionView = LayoutInflater.from(requireContext()).inflate(R.layout.equipo_seleccion_popup, null);
+        TextView tvNombreDetalle = popupViewDetalle.findViewById(R.id.tvNombreDetalle);
+        String nombrePokemon = tvNombreDetalle.getText().toString();
+        setupPopupSeleccion(seleccionView, pokemonId, nombrePokemon);
+        ViewGroup rootView = (ViewGroup) requireActivity().getWindow().getDecorView();
+        rootView.addView(seleccionView);
+    }
+
+    private void setupPopupSeleccion(View popupView, int pokemonId, String nombrePokemon) {
+        Toast.makeText(requireContext(), "Seleccionar equipo para " + nombrePokemon, Toast.LENGTH_SHORT).show();
+        ViewGroup rootView = (ViewGroup) requireActivity().getWindow().getDecorView();
+        rootView.removeView(popupView);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (ejecutor != null) {
+            ejecutor.shutdown();
+        }
+        if (manejador != null) {
+            manejador.removeCallbacksAndMessages(null);
+        }
+    }
+}

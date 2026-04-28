@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">PokeDex</string>
+    <string name="imagen_pokemon">imagen_pokemon</string>
+    <string name="title_activity_menu_navegador">menu_navegador</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
